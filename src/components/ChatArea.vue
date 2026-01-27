@@ -11,6 +11,14 @@ const props = defineProps({
   wsConnected: Boolean
 })
 
+// Debug: Log friend status whenever it changes
+watch(() => props.friend, (newFriend) => {
+  console.log('ChatArea: friend prop changed:', newFriend)
+  if (newFriend) {
+    console.log('ChatArea: friend.status =', newFriend.status)
+  }
+}, { immediate: true, deep: true })
+
 const emit = defineEmits(['back'])
 
 const messageInput = ref('')
@@ -202,7 +210,13 @@ watch(() => props.friend?.id, () => {
         <div>
           <h3 class="text-sm md:text-lg font-bold text-slate-800 leading-tight">{{ friend.name }}</h3>
           <p class="text-[10px] md:text-xs text-slate-500 flex items-center gap-1">
-             <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Online
+            <span
+              class="w-1.5 h-1.5 rounded-full"
+              :class="(friend && friend.status === 'online') ? 'bg-green-500' : 'bg-gray-400'"
+            ></span>
+            <span v-if="friend && friend.status === 'online'">Online</span>
+            <span v-else-if="friend && friend.status === 'offline'">Offline</span>
+            <span v-else>—</span>
           </p>
         </div>
       </div>

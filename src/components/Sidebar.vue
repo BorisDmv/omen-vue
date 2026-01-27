@@ -1,4 +1,5 @@
 <script setup>
+
 defineProps({
   currentUser: Object,
   friends: Array,
@@ -12,12 +13,15 @@ const emit = defineEmits(['selectFriend', 'openInvite'])
   <div class="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col justify-between z-10 h-full">
     
     <div class="p-6 border-b border-slate-100 flex items-center space-x-3 bg-white">
-      <img :src="currentUser.avatar" alt="User" class="w-10 h-10 rounded-full object-cover shadow-sm" />
+      <div class="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold text-lg shadow-sm">
+        {{ currentUser.username ? currentUser.username.charAt(0).toUpperCase() : '?' }}
+      </div>
       <div>
-        <h2 class="font-bold text-slate-800">{{ currentUser.name }}</h2>
-        <div class="flex items-center space-x-1">
-          <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-          <span class="text-xs text-slate-500 font-medium">Active Now</span>
+        <h2 class="font-bold text-slate-800">{{ currentUser.username }}</h2>
+        <div class="text-xs text-slate-500">{{ currentUser.email }}</div>
+        <div class="flex items-center space-x-1 mt-1">
+          <span :class="['w-2 h-2 rounded-full', currentUser.status === 'online' ? 'bg-green-500' : 'bg-gray-400']"></span>
+          <span class="text-xs text-slate-500 font-medium">{{ currentUser.status === 'online' ? 'Active Now' : 'Offline' }}</span>
         </div>
       </div>
     </div>

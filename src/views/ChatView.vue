@@ -6,14 +6,14 @@ import Sidebar from '@/components/Sidebar.vue'
 import ChatArea from '@/components/ChatArea.vue'
 import InviteModal from '@/components/InviteModal.vue'
 
-const currentUserId = ref(getCurrentUserId())
 
-const currentUser = {
+const currentUserId = ref(getCurrentUserId())
+const currentUser = ref({
   id: currentUserId.value,
-  name: 'Alex Doe',
-  avatar: 'https://i.pravatar.cc/150?u=alex',
+  username: '',
+  email: '',
   status: 'online'
-}
+})
 
 const friends = ref([])
 
@@ -25,17 +25,29 @@ const wsConnected = ref(false)
 const wsStats = ref({ messageCount: 0, handlerCount: 0 })
 let messagePollInterval = null
 
-// WebSocket message handler
+// WebSocket message handler (chat and presence)
 const handleWebSocketMessage = (data) => {
   console.log('🔔 WebSocket message received in ChatView:', data)
   console.log('🔔 WebSocket message type:', typeof data)
   console.log('🔔 WebSocket message keys:', Object.keys(data || {}))
   console.log('🔔 Full data object:', JSON.stringify(data, null, 2))
   
+  // PRESENCE EVENT HANDLING
+  if (data && data.type === 'presence' && data.user_id) {
+    // Example: { type: 'presence', user_id: 123, is_online: true }
+    const idx = friends.value.findIndex(f => f.id === data.user_id)
+    if (idx !== -1) {
+      friends.value[idx].status = data.is_online ? 'online' : 'offline'
+      // Force reactivity
+      friends.value = [...friends.value]
+    }
+    return
+  }
+
+  // ...existing code for chat message handling...
   // Handle different message formats from the server
   let message = null
   let msgConversationId = null
-  
   // Try different possible message structures - be more lenient
   if (data.message) {
     // Format: { message: { ... } }
@@ -63,7 +75,6 @@ const handleWebSocketMessage = (data) => {
     msgConversationId = data.conversation_id || data.room || data.room_id || conversationId.value
     console.log('📦 Detected format: has sender_id')
   }
-  
   if (!message) {
     console.warn('⚠️ Unknown WebSocket message format, attempting to process anyway:', data)
     // Try to process anyway if it looks like a message
@@ -76,16 +87,11 @@ const handleWebSocketMessage = (data) => {
       return
     }
   }
-  
-  // Use current conversationId if not provided in message
   msgConversationId = msgConversationId || conversationId.value
-  
-  // Extract content from various possible fields
   const messageContent = message.content || message.text || message.message_text || message.message || ''
   const messageSenderId = message.sender_id || message.user_id || message.from_user_id || message.from
   const messageId = message.id || message.message_id || `ws-${Date.now()}`
   const messageCreatedAt = message.created_at || message.timestamp || message.time || new Date().toISOString()
-  
   console.log('✅ Processed message details:')
   console.log('   Content:', messageContent)
   console.log('   Sender ID:', messageSenderId)
@@ -95,19 +101,12 @@ const handleWebSocketMessage = (data) => {
   console.log('   Created At:', messageCreatedAt)
   console.log('   Message conversation ID:', msgConversationId)
   console.log('   Current conversation ID:', conversationId.value)
-  
-  // Add message to chat history if it's for the current conversation
-  // Also accept if conversationId matches or if no conversationId is specified (assume current)
   const isForCurrentConversation = !msgConversationId || 
                                     msgConversationId === conversationId.value ||
-                                    !conversationId.value // If no current conversation, accept it
-  
+                                    !conversationId.value
   if (isForCurrentConversation && messageContent) {
-    // Check if message already exists (avoid duplicates)
     let existingIndex = chatHistory.value.findIndex(m => {
-      // Check by ID
       if (m.id === messageId) return true
-      // Check by content and sender (within 5 seconds to be more lenient)
       if (m.content === messageContent && 
           m.sender_id === messageSenderId && 
           messageCreatedAt &&
@@ -116,12 +115,10 @@ const handleWebSocketMessage = (data) => {
       }
       return false
     })
-    // If this is a real message from me, try to replace optimistic temp message
     if (existingIndex === -1 && messageSenderId === currentUserId.value && !messageId.startsWith('temp-')) {
       existingIndex = chatHistory.value.findIndex(m => m.sender_id === currentUserId.value && m.content === messageContent && m.id && m.id.startsWith('temp-'))
     }
     if (existingIndex === -1) {
-      // Not found, add as new
       const newMessage = {
         id: messageId,
         content: messageContent,
@@ -130,7 +127,6 @@ const handleWebSocketMessage = (data) => {
       }
       chatHistory.value = [...chatHistory.value, newMessage]
     } else {
-      // Replace optimistic message with real one if needed
       const existingMsg = chatHistory.value[existingIndex]
       if (existingMsg.id && existingMsg.id.startsWith('temp-') && messageId && !messageId.startsWith('temp-')) {
         chatHistory.value = [
@@ -144,7 +140,6 @@ const handleWebSocketMessage = (data) => {
           ...chatHistory.value.slice(existingIndex + 1)
         ]
       }
-      // Otherwise, do nothing (already present)
     }
   } else {
     console.log('⚠️ Message is for different conversation or missing content')
@@ -371,6 +366,25 @@ const handleInvite = (email) => {
   showInviteModal.value = false
 }
 
+const fetchCurrentUser = async () => {
+  try {
+    const res = await api.get('/user/me')
+    currentUser.value = {
+      id: currentUserId.value,
+      username: res.data.username,
+      email: res.data.email,
+      status: 'online'
+    }
+  } catch {
+    currentUser.value = {
+      id: currentUserId.value,
+      username: 'Unknown',
+      email: '',
+      status: 'offline'
+    }
+  }
+}
+
 const fetchFriends = async () => {
   try {
     const res = await api.get('/user/friends')
@@ -379,7 +393,7 @@ const fetchFriends = async () => {
       name: f.username,
       email: f.email,
       avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(f.username)}`,
-      status: 'online', // You can update this if you have status info
+      status: f.is_online ? 'online' : 'offline',
       lastMessage: ''
     }))
   } catch {
@@ -387,6 +401,7 @@ const fetchFriends = async () => {
   }
 }
 
+fetchCurrentUser()
 fetchFriends()
 </script>
 

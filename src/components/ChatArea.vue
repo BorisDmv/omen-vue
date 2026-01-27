@@ -78,16 +78,20 @@ watch(() => props.chatHistory, (newHistory, oldHistory) => {
     return !mappedMessages.some(m => m.sender === 'me' && m.text === optMsg.text)
   })
 
-  // Merge mappedMessages and remaining optimisticMessages, then sort by time
+  // Merge mappedMessages and remaining optimisticMessages, then sort by timestamp
   const allMessages = [...mappedMessages, ...optimisticMessages.value]
-  // Sort by time (using Date.parse for robustness)
+  // Use a reliable timestamp for sorting
   allMessages.sort((a, b) => {
-    // Try to parse time from created_at if available, else fallback to time string
-    const aTime = (a.created_at ? new Date(a.created_at) : new Date(`1970-01-01T${a.time}`)).getTime()
-    const bTime = (b.created_at ? new Date(b.created_at) : new Date(`1970-01-01T${b.time}`)).getTime()
-    return aTime - bTime
-  })
-  messages.value = allMessages
+    // Prefer created_at if available, else fallback to a numeric timestamp
+    const aTimestamp = a.created_at
+      ? new Date(a.created_at).getTime()
+      : (a.timestamp ? a.timestamp : Date.now());
+    const bTimestamp = b.created_at
+      ? new Date(b.created_at).getTime()
+      : (b.timestamp ? b.timestamp : Date.now());
+    return aTimestamp - bTimestamp;
+  });
+  messages.value = allMessages;
 
   nextTick(() => {
     console.log('   ✅ Messages updated after nextTick, new count:', messages.value.length)
@@ -114,11 +118,13 @@ const sendMessage = async () => {
   const tempMessageId = `temp-${Date.now()}`
 
   // Optimistically add message to UI immediately (to optimisticMessages)
+  const now = Date.now();
   const optimisticMsg = {
     id: tempMessageId,
     sender: 'me',
     text: messageContent,
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    time: new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    timestamp: now // Add a numeric timestamp for sorting
   }
   optimisticMessages.value.push(optimisticMsg)
   messages.value.push(optimisticMsg)
@@ -189,68 +195,81 @@ watch(() => props.friend?.id, () => {
     
     <div class="h-16 md:h-20 border-b border-slate-200 flex items-center justify-between px-4 md:px-8 bg-white/90 backdrop-blur-sm sticky top-0 z-20">
       <div class="flex items-center space-x-3">
-        
         <button @click="emit('back')" class="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
         </button>
-
         <img :src="friend.avatar" :alt="friend.name" class="w-9 h-9 md:w-10 md:h-10 rounded-full border border-slate-200 shadow-sm" />
         <div>
           <h3 class="text-sm md:text-lg font-bold text-slate-800 leading-tight">{{ friend.name }}</h3>
           <p class="text-[10px] md:text-xs text-slate-500 flex items-center gap-1">
              <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Online
-             <span v-if="!wsConnected" class="text-orange-500 ml-1">(Polling)</span>
           </p>
         </div>
       </div>
-      
-      <div class="flex space-x-2 md:space-x-4 text-slate-400">
+      <div class="flex items-center space-x-2 md:space-x-4 text-slate-400 relative">
         <button class="p-2 hover:bg-slate-100 rounded-full transition"><svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></button>
+        <!-- WebSocket status indicator -->
+        <div v-if="wsConnected" class="flex items-center ml-2 px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-semibold shadow-sm border border-green-200 animate-fade-in">
+          <svg class="w-3.5 h-3.5 mr-1 text-green-500" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10"/></svg>
+          WS Connected
+        </div>
+        <div v-else class="flex items-center ml-2 px-2 py-1 rounded bg-orange-100 text-orange-700 text-xs font-semibold shadow-sm border border-orange-200 animate-fade-in">
+          <svg class="w-3.5 h-3.5 mr-1 text-orange-500" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10"/></svg>
+          Polling
+        </div>
       </div>
     </div>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 md:space-y-6 bg-slate-50" ref="messagesContainer">
-      <!-- Debug: Show message count -->
-      <div v-if="false" class="text-xs text-gray-500 mb-2">
-        Messages in array: {{ messages.length }} | History length: {{ props.chatHistory?.length || 0 }}
-      </div>
+      <!-- Debug: Show message count removed for cleaner UI -->
       
       <div 
         v-for="msg in messages" 
         :key="msg.id"
-        :class="['flex', msg.sender === 'me' ? 'justify-end' : 'justify-start']"
+        :class="[
+          'flex',
+          msg.sender === 'me' ? 'justify-end' : 'justify-start',
+          'w-full'
+        ]"
       >
-        <div 
+        <div
           :class="[
-            'max-w-[80%] md:max-w-md px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-sm relative text-sm leading-relaxed wrap-break-word',
-            msg.sender === 'me'
-              ? 'bg-indigo-600 text-white rounded-br-none' 
-              : 'bg-white text-slate-700 rounded-bl-none border border-slate-100'
+            'flex flex-col',
+            msg.sender === 'me' ? 'items-end ml-auto max-w-[80%] md:max-w-md' : 'items-start max-w-[80%] md:max-w-md'
           ]"
         >
-          {{ msg.text }}
-          <span 
+          <span v-if="msg.sender !== 'me'" class="text-xs font-semibold text-slate-500 mb-1 ml-1">{{ friend.name }}</span>
+          <span v-else class="text-xs font-semibold text-indigo-400 mb-1 mr-1">me</span>
+          <div 
             :class="[
-              'text-[10px] block mt-1 opacity-70 text-right',
-              msg.sender === 'me' ? 'text-indigo-100' : 'text-slate-400'
+              'px-4 py-2 md:px-6 md:py-3 rounded-2xl shadow-sm relative text-sm leading-relaxed wrap-break-word',
+              msg.sender === 'me'
+                ? 'bg-indigo-600 text-white rounded-br-none' 
+                : 'bg-white text-slate-700 rounded-bl-none border border-slate-100'
             ]"
           >
-            {{ msg.time }}
-          </span>
+            {{ msg.text }}
+            <span 
+              :class="[
+                'text-[10px] block mt-1 opacity-70 text-right',
+                msg.sender === 'me' ? 'text-indigo-100' : 'text-slate-400'
+              ]"
+            >
+              {{ msg.time }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="p-3 md:p-6 bg-white border-t border-slate-100">
       <form @submit.prevent="sendMessage" class="flex items-center space-x-2 md:space-x-4">
-        
         <input 
           v-model="messageInput"
           type="text" 
           placeholder="Message..." 
           class="flex-1 bg-slate-100 text-slate-800 placeholder-slate-400 px-4 py-2.5 md:py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm md:text-base"
         />
-        
         <button 
           type="submit"
           class="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 md:p-3 rounded-xl shadow-md shadow-indigo-200 transition-transform active:scale-95 shrink-0"

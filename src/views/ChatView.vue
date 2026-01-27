@@ -418,19 +418,6 @@ fetchFriends()
       :ws-connected="wsConnected"
       @back="closeChat"
     />
-    <!-- Debug: Show conversationId and WebSocket status -->
-    <div v-if="activeFriendId" class="fixed bottom-0 right-0 bg-black text-white p-2 text-xs z-50 font-mono">
-      <div>conversationId: {{ conversationId }}</div>
-      <div :class="wsConnected ? 'text-green-400' : 'text-red-400'">
-        WS: {{ wsConnected ? 'Connected' : 'Disconnected' }}
-      </div>
-      <div class="text-yellow-400">
-        Messages received: {{ wsStats.messageCount }}
-      </div>
-      <div class="text-blue-400">
-        Handlers: {{ wsStats.handlerCount }}
-      </div>
-    </div>
 
     <div v-else class="hidden md:flex flex-1 items-center justify-center text-slate-400 bg-slate-50">
       <div class="text-center">

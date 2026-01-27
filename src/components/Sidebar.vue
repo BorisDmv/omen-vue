@@ -46,6 +46,14 @@ const emit = defineEmits(['selectFriend', 'openInvite'])
         >
           <span class="relative">
             <img :src="friend.avatar" :alt="friend.name || friend.email" class="w-10 h-10 rounded-full object-cover" />
+            <span
+              class="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full"
+              :class="{
+                'bg-green-500': friend.status === 'online',
+                'bg-gray-400': friend.status === 'offline',
+                'bg-red-500': friend.status === 'busy'
+              }"
+            ></span>
           </span>
           <span class="ml-3 text-left overflow-hidden">
             <span class="text-sm font-semibold text-slate-700 truncate block">{{ friend.name }}</span>

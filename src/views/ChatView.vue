@@ -1,5 +1,37 @@
 <script setup>
-import { ref, onUnmounted, watch } from 'vue'
+import { ref, onUnmounted, watch, onMounted } from 'vue'
+// Global presence WebSocket
+let presenceWS = null
+
+const connectPresenceWebSocket = () => {
+  if (presenceWS && presenceWS.readyState === WebSocket.OPEN) return
+  const token = localStorage.getItem('jwt')
+  if (!token) return
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsHost = window.location.hostname === 'localhost' ? 'localhost:8080' : window.location.host
+  const wsUrl = `${wsProtocol}//${wsHost}/api/v1/presence/socket?token=${encodeURIComponent(token)}`
+  presenceWS = new WebSocket(wsUrl)
+  presenceWS.onopen = () => {
+    console.log('🌐 Presence WebSocket connected')
+  }
+  presenceWS.onclose = () => {
+    console.log('🌐 Presence WebSocket closed')
+  }
+  presenceWS.onerror = (e) => {
+    console.error('🌐 Presence WebSocket error', e)
+  }
+}
+
+onMounted(() => {
+  connectPresenceWebSocket()
+})
+
+onUnmounted(() => {
+  if (presenceWS) {
+    presenceWS.close()
+    presenceWS = null
+  }
+})
 import api, { startChat, getChatHistory, getCurrentUserId } from '@/api'
 import websocket from '@/services/websocket'
 import Sidebar from '@/components/Sidebar.vue'

@@ -1,42 +1,61 @@
-# komorebi-chat-app
 
-This template should help get you started developing with Vue 3 in Vite.
+# Omen Chat App
 
-## Recommended IDE Setup
+A modern real-time chat application built with Vue 3, Vite, and WebSockets.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Features
+- Real-time messaging with WebSocket support
+- Optimistic UI for instant message feedback
+- User authentication (JWT-based)
+- Responsive design for desktop and mobile
+- Chat history and friend list
+- Modern, clean UI with Tailwind CSS
 
-## Recommended Browser Setup
+## Getting Started
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+### Prerequisites
+- Node.js (v18+ recommended)
+- npm (v9+ recommended)
 
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+### Project Setup
+```bash
 npm install
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
+### Development Server
+```bash
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+### Type Check
+```bash
+npm run type-check
+```
 
-```sh
+### Build for Production
+```bash
 npm run build
 ```
+
+### Lint and Fix
+```bash
+npm run lint
+```
+
+## Recommended Tools
+- [VS Code](https://code.visualstudio.com/) + [Vue Volar Extension](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
+- [Vue.js Devtools](https://devtools.vuejs.org/)
+
+## Configuration
+- Environment variables and API endpoints can be configured in `.env` files.
+- WebSocket server URL is auto-detected for local/production.
+
+## Folder Structure
+- `src/components/` — Vue components (ChatArea, Sidebar, etc.)
+- `src/services/` — API and WebSocket logic
+- `src/views/` — Main app views
+- `src/stores/` — Pinia stores
+- `src/assets/` — Static assets and styles
+
+## License
+MIT

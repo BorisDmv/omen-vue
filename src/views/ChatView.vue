@@ -1,3 +1,12 @@
+// Decline invite handler
+const declineInvite = async (inviteId) => {
+  try {
+    await api.post('/user/invite/decline', { invite_id: inviteId })
+    await fetchInvites()
+  } catch (e) {
+    alert('Failed to decline invite.')
+  }
+}
 <script setup>
 import { ref, onUnmounted, watch, onMounted } from 'vue'
 // Global presence WebSocket
@@ -33,6 +42,37 @@ onUnmounted(() => {
   }
 })
 import api, { startChat, getChatHistory, getCurrentUserId } from '@/api'
+// Accept invite handler
+const acceptInvite = async (inviteId) => {
+  try {
+    await api.post('/user/invite/accept', { invite_id: inviteId })
+    await fetchInvites()
+    await fetchFriends()
+  } catch (e) {
+    alert('Failed to accept invite.')
+  }
+}
+// Helper: Check if JWT is expired
+function isJwtExpired(token) {
+  if (!token) return true
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    if (!payload.exp) return false
+    return Date.now() / 1000 > payload.exp
+  } catch {
+    return true
+  }
+}
+
+function logout() {
+  localStorage.removeItem('jwt')
+  window.location.reload()
+}
+// Check JWT on app load
+const jwt = localStorage.getItem('jwt')
+if (isJwtExpired(jwt)) {
+  logout()
+}
 import websocket from '@/services/websocket'
 import Sidebar from '@/components/Sidebar.vue'
 import ChatArea from '@/components/ChatArea.vue'
@@ -48,6 +88,16 @@ const currentUser = ref({
 })
 
 const friends = ref([])
+const invites = ref([])
+// Fetch pending invites
+const fetchInvites = async () => {
+  try {
+    const res = await api.get('/user/invites')
+    invites.value = res.data.invites || []
+  } catch (e) {
+    invites.value = []
+  }
+}
 
 const activeFriendId = ref(null)
 const conversationId = ref(null)
@@ -402,12 +452,16 @@ const fetchCurrentUser = async () => {
   try {
     const res = await api.get('/user/me')
     currentUser.value = {
-      id: currentUserId.value,
+      id: res.data.id || currentUserId.value,
       username: res.data.username,
       email: res.data.email,
       status: 'online'
     }
-  } catch {
+  } catch (e) {
+    // If 401 or JWT expired, log out
+    if (e?.response?.status === 401 || isJwtExpired(localStorage.getItem('jwt'))) {
+      logout()
+    }
     currentUser.value = {
       id: currentUserId.value,
       username: 'Unknown',
@@ -428,13 +482,17 @@ const fetchFriends = async () => {
       status: f.is_online ? 'online' : 'offline',
       lastMessage: ''
     }))
-  } catch {
+  } catch (e) {
+    if (e?.response?.status === 401 || isJwtExpired(localStorage.getItem('jwt'))) {
+      logout()
+    }
     friends.value = []
   }
 }
 
 fetchCurrentUser()
 fetchFriends()
+fetchInvites()
 </script>
 
 <template>
@@ -448,8 +506,11 @@ fetchFriends()
       :current-user="currentUser" 
       :friends="friends" 
       :active-id="activeFriendId"
+      :invites="invites"
       @select-friend="selectFriend"
       @open-invite="showInviteModal = true"
+      @accept-invite="acceptInvite"
+      @decline-invite="declineInvite"
     />
 
     <ChatArea 

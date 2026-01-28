@@ -1,12 +1,27 @@
 <script setup>
 
-defineProps({
+
+
+const props = defineProps({
   currentUser: Object,
   friends: Array,
-  activeId: Number
+  activeId: Number,
+  invites: {
+    type: Array,
+    default: () => []
+  }
 })
 
 const emit = defineEmits(['selectFriend', 'openInvite'])
+
+const copyIdToClipboard = () => {
+  if (typeof window !== 'undefined' && window.navigator && window.navigator.clipboard) {
+    window.navigator.clipboard.writeText(props.currentUser.id)
+      .catch(() => alert('Failed to copy ID.'))
+  } else {
+    alert('Clipboard API not supported.')
+  }
+}
 </script>
 
 <template>
@@ -18,7 +33,14 @@ const emit = defineEmits(['selectFriend', 'openInvite'])
       </div>
       <div>
         <h2 class="font-bold text-slate-800">{{ currentUser.username }}</h2>
-        <div class="text-xs text-slate-500">{{ currentUser.email }}</div>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <span>ID: {{ currentUser.id }}</span>
+          <button
+            @click="copyIdToClipboard"
+            class="ml-1 px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-semibold transition"
+            title="Copy ID"
+          >Copy</button>
+        </div>
         <div class="flex items-center space-x-1 mt-1">
           <span :class="['w-2 h-2 rounded-full', currentUser.status === 'online' ? 'bg-green-500' : 'bg-gray-400']"></span>
           <span class="text-xs text-slate-500 font-medium">{{ currentUser.status === 'online' ? 'Active Now' : 'Offline' }}</span>
@@ -28,7 +50,6 @@ const emit = defineEmits(['selectFriend', 'openInvite'])
 
     <div class="flex-1 overflow-y-auto p-3 space-y-1">
       <div class="px-3 pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Friends</div>
-      
       <template v-if="!friends || friends.length === 0">
         <div class="text-center text-slate-400 py-8">
           No friends yet
@@ -41,8 +62,10 @@ const emit = defineEmits(['selectFriend', 'openInvite'])
           @click="emit('selectFriend', friend.id)"
           :class="[
             'w-full flex items-center p-3 rounded-xl transition-all duration-200',
-            activeId === friend.id ? 'bg-indigo-50 shadow-sm' : 'hover:bg-slate-50'
+            activeId === friend.id ? 'bg-indigo-50 shadow-sm' : 'hover:bg-slate-50',
+            friend.pending ? 'opacity-60 cursor-not-allowed' : ''
           ]"
+          :disabled="friend.pending"
         >
           <span class="relative">
             <img :src="friend.avatar" :alt="friend.name || friend.email" class="w-10 h-10 rounded-full object-cover" />
@@ -54,12 +77,33 @@ const emit = defineEmits(['selectFriend', 'openInvite'])
                 'bg-red-500': friend.status === 'busy'
               }"
             ></span>
+            <span v-if="friend.pending" class="absolute -top-1 -right-1 bg-yellow-400 text-white text-[10px] px-1.5 py-0.5 rounded shadow font-bold">Pending</span>
           </span>
           <span class="ml-3 text-left overflow-hidden">
             <span class="text-sm font-semibold text-slate-700 truncate block">{{ friend.name }}</span>
             <span class="text-xs text-slate-500 truncate block">{{ friend.lastMessage }}</span>
           </span>
         </button>
+      </template>
+
+      <template v-if="invites && invites.length">
+        <div class="px-3 pb-2 text-xs font-semibold text-yellow-600 uppercase tracking-wider">Invites</div>
+        <div v-for="invite in invites" :key="invite.id" class="flex flex-col md:flex-row md:items-center p-3 rounded-xl bg-yellow-50 border border-yellow-100 mb-2 overflow-hidden">
+          <div class="flex-1 min-w-0">
+            <span class="text-sm font-semibold text-yellow-800 truncate block">From: {{ invite.username || invite.email || invite.sender_id }}</span>
+            <span class="text-xs text-yellow-700 truncate block">Invite ID: {{ invite.id }}</span>
+          </div>
+          <div class="flex flex-row mt-2 md:mt-0 md:ml-2 shrink-0 gap-1">
+            <button
+              class="px-2 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs font-semibold transition"
+              @click="$emit('accept-invite', invite.id)"
+            >Accept</button>
+            <button
+              class="px-2 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition"
+              @click="$emit('decline-invite', invite.id)"
+            >Decline</button>
+          </div>
+        </div>
       </template>
     </div>
 

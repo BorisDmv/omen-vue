@@ -44,8 +44,10 @@ export const sendMessage = ({ conversation_id, content }) => {
 export const getChatHistory = (conversationId) => api.get(`/chat/history?room=${conversationId}`)
 export const getFriends = () => api.get('/user/friends')
 
+
 // Invite API methods
+export const inviteFriend = (receiverId) => api.post('/user/invite', { receiver_id: receiverId })
 export const acceptInvite = (inviteId) => api.post('/accept', { invite_id: inviteId })
-export const declineInvite = (inviteId) => api.post('/decline', { invite_id: inviteId })
+export const declineInvite = (inviteId) => api.post('user/invite/decline', { invite_id: inviteId })
 
 export default api

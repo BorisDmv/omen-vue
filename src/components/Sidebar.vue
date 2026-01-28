@@ -12,14 +12,39 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['selectFriend', 'openInvite'])
+import { declineInvite } from '../api.js'
 
+const emit = defineEmits(['selectFriend', 'openInvite', 'accept-invite', 'decline-invite'])
+
+
+const copied = ref(false)
 const copyIdToClipboard = () => {
   if (typeof window !== 'undefined' && window.navigator && window.navigator.clipboard) {
     window.navigator.clipboard.writeText(props.currentUser.id)
+      .then(() => {
+        copied.value = true
+        setTimeout(() => { copied.value = false }, 1200)
+      })
       .catch(() => alert('Failed to copy ID.'))
   } else {
     alert('Clipboard API not supported.')
+  }
+}
+
+import { ref, watch } from 'vue'
+
+const localInvites = ref([...props.invites])
+watch(() => props.invites, (newVal) => {
+  localInvites.value = [...newVal]
+})
+
+const handleDeclineInvite = async (inviteId) => {
+  try {
+    await declineInvite(inviteId)
+    localInvites.value = localInvites.value.filter(invite => invite.id !== inviteId)
+    emit('decline-invite', inviteId)
+  } catch (e) {
+    alert('Failed to decline invite.')
   }
 }
 </script>
@@ -37,9 +62,13 @@ const copyIdToClipboard = () => {
           <span>ID: {{ currentUser.id }}</span>
           <button
             @click="copyIdToClipboard"
-            class="ml-1 px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-semibold transition"
+            class="ml-1 px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 text-[10px] font-semibold transition relative"
             title="Copy ID"
-          >Copy</button>
+            :disabled="copied"
+          >
+            <span v-if="!copied">Copy</span>
+            <span v-else class="text-green-600">Copied!</span>
+          </button>
         </div>
         <div class="flex items-center space-x-1 mt-1">
           <span :class="['w-2 h-2 rounded-full', currentUser.status === 'online' ? 'bg-green-500' : 'bg-gray-400']"></span>
@@ -86,9 +115,9 @@ const copyIdToClipboard = () => {
         </button>
       </template>
 
-      <template v-if="invites && invites.length">
+      <template v-if="localInvites && localInvites.length">
         <div class="px-3 pb-2 text-xs font-semibold text-yellow-600 uppercase tracking-wider">Invites</div>
-        <div v-for="invite in invites" :key="invite.id" class="flex flex-col md:flex-row md:items-center p-3 rounded-xl bg-yellow-50 border border-yellow-100 mb-2 overflow-hidden">
+        <div v-for="invite in localInvites" :key="invite.id" class="flex flex-col md:flex-row md:items-center p-3 rounded-xl bg-yellow-50 border border-yellow-100 mb-2 overflow-hidden">
           <div class="flex-1 min-w-0">
             <span class="text-sm font-semibold text-yellow-800 truncate block">From: {{ invite.username || invite.email || invite.sender_id }}</span>
             <span class="text-xs text-yellow-700 truncate block">Invite ID: {{ invite.id }}</span>
@@ -100,7 +129,7 @@ const copyIdToClipboard = () => {
             >Accept</button>
             <button
               class="px-2 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition"
-              @click="$emit('decline-invite', invite.id)"
+              @click="handleDeclineInvite(invite.id)"
             >Decline</button>
           </div>
         </div>

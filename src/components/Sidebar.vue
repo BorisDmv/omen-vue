@@ -19,6 +19,7 @@ const emit = defineEmits(['selectFriend', 'openInvite', 'accept-invite', 'declin
 
 const copied = ref(false)
 const copyIdToClipboard = () => {
+  debugger;
   if (typeof window !== 'undefined' && window.navigator && window.navigator.clipboard) {
     window.navigator.clipboard.writeText(props.currentUser.id)
       .then(() => {
@@ -31,11 +32,35 @@ const copyIdToClipboard = () => {
   }
 }
 
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
+import { Settings, UserPlus } from 'lucide-vue-next'
 
 const localInvites = ref([...props.invites])
 watch(() => props.invites, (newVal) => {
   localInvites.value = [...newVal]
+})
+
+const isSettingsOpen = ref(false)
+const theme = ref('light')
+
+const applyTheme = (value) => {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  root.classList.toggle('theme-dark', value === 'dark')
+  root.dataset.theme = value
+}
+
+onMounted(() => {
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme === 'dark' || savedTheme === 'light') {
+    theme.value = savedTheme
+  }
+  applyTheme(theme.value)
+})
+
+watch(theme, (value) => {
+  localStorage.setItem('theme', value)
+  applyTheme(value)
 })
 
 const handleDeclineInvite = async (inviteId) => {
@@ -136,16 +161,66 @@ const handleDeclineInvite = async (inviteId) => {
       </template>
     </div>
 
-    <div class="p-4 border-t border-slate-100 bg-white">
+    <div class="p-4 border-t border-slate-100 bg-white space-y-2">
+      <button
+        @click="isSettingsOpen = true"
+        class="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl transition-colors font-medium"
+      >
+        <Settings class="h-5 w-5 shrink-0" />
+        <span class="leading-none">Settings</span>
+      </button>
       <button 
         @click="emit('openInvite')"
-        class="w-full flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl transition-colors font-medium shadow-md shadow-indigo-200 active:scale-95"
+        class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl transition-colors font-medium shadow-md shadow-indigo-200 active:scale-95"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0 1 1 0 002 0zM16 9a1 1 0 10-2 0 1 1 0 002 0z" />
-        </svg>
+        <UserPlus class="h-5 w-5" />
         <span>Invite Friend</span>
       </button>
+    </div>
+  </div>
+
+  <div v-if="isSettingsOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="isSettingsOpen = false"></div>
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
+      <div class="p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-slate-800">Settings</h3>
+          <button @click="isSettingsOpen = false" class="text-slate-400 hover:text-slate-600" aria-label="Close settings">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-2">Theme</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                @click="theme = 'light'"
+                :class="[
+                  'px-3 py-2 rounded-lg border text-sm font-semibold transition',
+                  theme === 'light'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                ]"
+              >
+                Light
+              </button>
+              <button
+                type="button"
+                @click="theme = 'dark'"
+                :class="[
+                  'px-3 py-2 rounded-lg border text-sm font-semibold transition',
+                  theme === 'dark'
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                ]"
+              >
+                Dark
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

@@ -42,9 +42,9 @@ watch(() => props.isOpen, (open) => {
 </script>
 
 <template>
-  <Transition name="fade">
-    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="emit('close')"></div>
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="emit('close')"></div>
+    <Transition name="fade">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden transform transition-all">
         <div class="p-6">
           <div class="flex justify-between items-center mb-6">
@@ -91,8 +91,8 @@ watch(() => props.isOpen, (open) => {
           </button>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>

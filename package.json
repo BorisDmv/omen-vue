@@ -16,6 +16,8 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "axios": "^1.13.3",
+    "emoji-mart": "^5.6.0",
+    "lucide-vue-next": "^0.564.0",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.1.18",
     "vue": "^3.5.26",

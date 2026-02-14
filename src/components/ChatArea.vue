@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch, nextTick, toRef, computed } from 'vue'
+import { ref, watch, nextTick, toRef, onMounted, onUnmounted } from 'vue'
 import { sendMessage as apiSendMessage } from '@/api'
 import websocket from '@/services/websocket'
+import { Picker } from 'emoji-mart'
 
 const props = defineProps({
   friend: Object,
@@ -22,8 +23,15 @@ watch(() => props.friend, (newFriend) => {
 const emit = defineEmits(['back'])
 
 const messageInput = ref('')
+const messageInputRef = ref(null)
 const messagesContainer = ref(null)
 const messages = ref([])
+const showEmojiPicker = ref(false)
+const emojiPickerRef = ref(null)
+const emojiPickerContainerRef = ref(null)
+const emojiButtonRef = ref(null)
+let emojiPickerInstance = null
+let emojiPickerTheme = null
 // Track optimistic messages (not yet confirmed by server)
 const optimisticMessages = ref([])
 
@@ -117,6 +125,8 @@ const sendMessage = async () => {
     return
   }
 
+  showEmojiPicker.value = false
+
   if (!currentConversationId) {
     console.error('conversationId is null or undefined!')
     return
@@ -189,6 +199,84 @@ const sendMessage = async () => {
   }
 }
 
+const isEmojiOnly = (text) => {
+  if (!text) return false
+  const trimmed = text.trim()
+  if (!trimmed) return false
+  const emojiRegex = /^([\p{Extended_Pictographic}\u200D\uFE0F]+)$/u
+  const compact = trimmed.replace(/\s+/g, '')
+  return emojiRegex.test(compact)
+}
+
+const toggleEmojiPicker = () => {
+  showEmojiPicker.value = !showEmojiPicker.value
+}
+
+const addEmoji = (emoji) => {
+  const emojiValue = typeof emoji === 'string' ? emoji : (emoji?.native || '')
+  if (!emojiValue) return
+  messageInput.value += emojiValue
+  nextTick(() => {
+    messageInputRef.value?.focus()
+  })
+}
+
+const getCurrentTheme = () => {
+  if (typeof document === 'undefined') return 'light'
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+}
+
+const mountEmojiPicker = () => {
+  if (!emojiPickerContainerRef.value) return
+  const currentTheme = getCurrentTheme()
+  if (!emojiPickerInstance || emojiPickerTheme !== currentTheme) {
+    emojiPickerInstance = new Picker({
+      data: async () => {
+        const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data')
+        return response.json()
+      },
+      onEmojiSelect: addEmoji,
+      set: 'native',
+      theme: currentTheme,
+      previewPosition: 'none',
+      navPosition: 'top',
+      perLine: 8,
+      emojiSize: 20,
+      emojiButtonSize: 36
+    })
+    emojiPickerTheme = currentTheme
+  }
+  emojiPickerContainerRef.value.replaceChildren(emojiPickerInstance)
+}
+
+const handleDocumentClick = (event) => {
+  if (!showEmojiPicker.value) return
+  const path = event.composedPath ? event.composedPath() : []
+  const clickedInsidePicker = path.includes(emojiPickerRef.value)
+  const clickedEmojiButton = path.includes(emojiButtonRef.value)
+
+  if (clickedInsidePicker || clickedEmojiButton) {
+    return
+  }
+
+  showEmojiPicker.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
+
+watch(showEmojiPicker, (isOpen) => {
+  if (!isOpen) return
+  nextTick(() => {
+    mountEmojiPicker()
+  })
+})
+
 watch(() => props.friend?.id, () => {
   messages.value = []
   optimisticMessages.value = []
@@ -221,7 +309,6 @@ watch(() => props.friend?.id, () => {
         </div>
       </div>
       <div class="flex items-center space-x-2 md:space-x-4 text-slate-400 relative">
-        <button class="p-2 hover:bg-slate-100 rounded-full transition"><svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></button>
         <!-- WebSocket status indicator -->
         <div v-if="wsConnected" class="flex items-center ml-2 px-2 py-1 rounded bg-green-100 text-green-700 text-xs font-semibold shadow-sm border border-green-200 animate-fade-in">
           <svg class="w-3.5 h-3.5 mr-1 text-green-500" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10"/></svg>
@@ -262,7 +349,9 @@ watch(() => props.friend?.id, () => {
                 : 'bg-white text-slate-700 rounded-bl-none border border-slate-100'
             ]"
           >
-            {{ msg.text }}
+            <span :class="isEmojiOnly(msg.text) ? 'text-3xl leading-none' : ''">
+              {{ msg.text }}
+            </span>
             <span 
               :class="[
                 'text-[10px] block mt-1 opacity-70 text-right',
@@ -277,13 +366,33 @@ watch(() => props.friend?.id, () => {
     </div>
 
     <div class="p-3 md:p-6 bg-white border-t border-slate-100">
-      <form @submit.prevent="sendMessage" class="flex items-center space-x-2 md:space-x-4">
+      <form @submit.prevent="sendMessage" class="flex items-center space-x-2 md:space-x-4 relative">
         <input 
           v-model="messageInput"
+          ref="messageInputRef"
           type="text" 
           placeholder="Message..." 
-          class="flex-1 bg-slate-100 text-slate-800 placeholder-slate-400 px-4 py-2.5 md:py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-sm md:text-base"
+          class="flex-1 bg-slate-100 text-slate-800 placeholder-slate-400 px-4 py-3 md:py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all text-base md:text-lg"
         />
+        <div class="relative">
+          <button
+            ref="emojiButtonRef"
+            type="button"
+            @click.stop="toggleEmojiPicker"
+            class="p-2.5 md:p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition active:scale-95 shrink-0"
+            aria-label="Open emoji picker"
+            title="Emoji"
+          >
+            <span class="text-base md:text-lg">🙂</span>
+          </button>
+          <div
+            v-if="showEmojiPicker"
+            ref="emojiPickerRef"
+            class="absolute bottom-full right-0 mb-2 z-30 rounded-xl overflow-hidden border border-slate-200 shadow-lg bg-white"
+          >
+            <div ref="emojiPickerContainerRef"></div>
+          </div>
+        </div>
         <button 
           type="submit"
           class="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 md:p-3 rounded-xl shadow-md shadow-indigo-200 transition-transform active:scale-95 shrink-0"
